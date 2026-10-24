@@ -31,12 +31,8 @@ def evaluate_clearance(
     height = measure_height(point_world_y_m, rail_reference_y_m)
     if rule is None or threshold_m is None:
         return Measurement(height, rail_reference_y_m, threshold_m, rule, "RULE_UNCONFIGURED", False)
-    if rule == "maximum_height":
-        status = "PASS" if height <= threshold_m else "FAIL"
-    elif rule == "minimum_clearance":
-        status = "PASS" if height >= threshold_m else "FAIL"
-    elif rule == "absolute_separation":
-        status = "PASS" if abs(height) <= threshold_m else "FAIL"
+    if rule == "defect_at_or_below_threshold":
+        status = "DEFECT" if height <= threshold_m else "CLEAR"
     else:
         raise ValueError(f"unsupported clearance rule: {rule}")
     return Measurement(height, rail_reference_y_m, threshold_m, rule, status, True)

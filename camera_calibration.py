@@ -17,6 +17,7 @@ class CameraCalibration:
     distortion_coefficients: np.ndarray
     rotation_world_to_camera: np.ndarray
     translation_world_to_camera: np.ndarray
+    is_placeholder: bool = False
 
     def __post_init__(self) -> None:
         if self.camera_matrix.shape != (3, 3):
@@ -39,10 +40,13 @@ def calibrate_camera(
     image_size: tuple[int, int],
     camera_id: str,
 ) -> CameraCalibration:
-    """Calibrate one camera from multiple views of a known target.
+    """Calibrate intrinsics and estimate pose from the first supplied view.
 
-    The returned pose is the target/world pose for the calibration view. For a
-    shared railway datum, object_points must be expressed in that datum.
+    For this pose to be a camera pose in the shared railway frame, the first
+    view's object_points must be surveyed coordinates in that frame. If the
+    target is moved, pass its surveyed world coordinates for every view.
+    Ordinary checkerboard-local coordinates alone do not align cameras to the
+    railway frame.
     """
     object_points_list = [np.asarray(points, dtype=np.float32) for points in object_points]
     image_points_list = [np.asarray(points, dtype=np.float32) for points in image_points]
@@ -75,6 +79,7 @@ def load_calibration(path: str | Path) -> CameraCalibration:
         data["distortion_coefficients"],
         data["rotation_world_to_camera"],
         data["translation_world_to_camera"],
+        bool(data["is_placeholder"].item()) if "is_placeholder" in data.files else False,
     )
 
 
@@ -86,4 +91,5 @@ def save_calibration(calibration: CameraCalibration, path: str | Path) -> None:
         distortion_coefficients=calibration.distortion_coefficients,
         rotation_world_to_camera=calibration.rotation_world_to_camera,
         translation_world_to_camera=calibration.translation_world_to_camera,
+        is_placeholder=calibration.is_placeholder,
     )

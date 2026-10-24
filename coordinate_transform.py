@@ -36,12 +36,20 @@ def triangulate_world_point(
     pixel_b: np.ndarray,
     camera_b: CameraCalibration,
 ) -> np.ndarray:
-    points = cv2.triangulatePoints(
-        camera_a.projection_matrix,
-        camera_b.projection_matrix,
-        np.asarray(pixel_a, dtype=float).reshape(2, 1),
-        np.asarray(pixel_b, dtype=float).reshape(2, 1),
-    )
+    # Remove lens distortion and express pixels as normalized camera rays.
+    normalized_a = cv2.undistortPoints(
+        np.asarray(pixel_a, dtype=float).reshape(1, 1, 2),
+        camera_a.camera_matrix, camera_a.distortion_coefficients,
+    ).reshape(2, 1)
+    normalized_b = cv2.undistortPoints(
+        np.asarray(pixel_b, dtype=float).reshape(1, 1, 2),
+        camera_b.camera_matrix, camera_b.distortion_coefficients,
+    ).reshape(2, 1)
+    projection_a = np.hstack((camera_a.rotation_world_to_camera,
+                              camera_a.translation_world_to_camera.reshape(3, 1)))
+    projection_b = np.hstack((camera_b.rotation_world_to_camera,
+                              camera_b.translation_world_to_camera.reshape(3, 1)))
+    points = cv2.triangulatePoints(projection_a, projection_b, normalized_a, normalized_b)
     homogeneous = points[:, 0]
     if abs(homogeneous[3]) < 1e-12:
         raise ValueError("triangulated point is at infinity")

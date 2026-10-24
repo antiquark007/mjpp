@@ -1,140 +1,65 @@
-# Two-camera railway clearance measurement
+# v2: SBL/SLL height check
 
-This project estimates the rail-relative height of a component visible in an
-undercarriage image and a side-view image. It uses calibrated stereo
-triangulation with OpenCV and NumPy.
+The system estimates the 3D position of one point seen by both cameras. It reports `DEFECT` when the point is at or below 1.50 m above the configured track datum (`Y = 0 m`).
 
-The repository did not contain an existing image pipeline or detection model.
-The current workflow therefore accepts manually selected pixel coordinates.
-The two pixels must identify the same physical point; identical pixel
-coordinates in different images are not assumed to correspond.
+## Do these steps in order
 
-## Setup with Conda
+### 1. Prepare calibration photos
 
-Create the local environment:
+Keep the cameras at their final fixed positions and use the same image resolution that will be used during inspection.
 
-```bash
-conda create --prefix .conda-env python=3.11 pip -y
-conda run --prefix .conda-env python -m pip install -r requirements.txt
-```
+For **each camera**, take at least 8 checkerboard photos with the board at different distances and angles. Save them here:
 
-Activate it when working interactively:
+- `calibration/images/SBL/intrinsics/`
+- `calibration/images/SLL/intrinsics/`
 
-```bash
-conda activate ./.conda-env
-```
+Use a board that is fully visible and in focus. The checkerboard size means the number of inner corner points, not the number of squares.
 
-Run the tests:
+### 2. Capture the surveyed board pose
 
-```bash
-conda run --prefix .conda-env python -m pytest -q
-```
+Place the checkerboard at a fixed, surveyed position relative to the track. Both cameras must see it. Capture one image from each camera without moving the board:
 
-## Project files
+- `calibration/images/SBL/track_pose.png`
+- `calibration/images/SLL/track_pose.png`
 
-- `camera_calibration.py` - camera calibration and `.npz` persistence.
-- `coordinate_transform.py` - camera/world transforms, projection, and
-  triangulation.
-- `clearance_measurement.py` - rail-relative height and configurable rules.
-- `main.py` - command-line measurement workflow.
-- `config.json` - calibration paths, rail datum, threshold, and rule.
-- `tests/test_geometry.py` - synthetic geometry and measurement tests.
+Mark the board's chosen first inner corner. Record that corner's track coordinates and the 3D step between neighboring corners in both board directions. Use metres and the shared axes: X along track, Y upward from the track datum, Z lateral from the chosen track plane. Do not use camera-to-wagon offsets as board coordinates.
 
-## Run a measurement
+### 3. Enter the board measurements
 
-Place calibration files at the paths configured in `config.json`, then run:
+Edit `calibration/calibration_setup.json`:
+
+- `inner_corners_cols`, `inner_corners_rows`: checkerboard inner corner counts.
+- `square_size_m`: measured side length of one square.
+- `world_first_inner_corner_m`: surveyed `[X, Y, Z]` of the marked first inner corner.
+- `world_column_step_m`, `world_row_step_m`: surveyed `[dX, dY, dZ]` from one inner corner to the next in each direction.
+- `pose_corner_flips`: leave `false` unless the debug image shows that the detected corner order must be flipped to make corner 0 the marked corner and align the rows/columns with the entered step vectors.
+
+These surveyed values are required; the script will stop if they are missing. The approximate SBL/SLL mounting dimensions in `config.json` do not provide them.
+
+### 4. Create the calibration files
+
+From the `v2` folder, run:
 
 ```bash
-conda run --prefix .conda-env python main.py \
-  --undercarriage-image data/undercarriage.jpg \
-  --side-image data/side.jpg \
-  --undercarriage-pixel 520 310 \
-  --side-pixel 480 300
+python calibration/create_calibrations.py
 ```
 
-The command reports:
+This detects checkerboard corners, calculates each lens calibration and track-frame camera pose, then writes `calibration/sbl.npz` and `calibration/sll.npz`. It also writes corner-order previews to `calibration/debug/`. Check that the red point labeled `0` is on the marked first corner in both previews. If it is not, adjust that camera's `pose_corner_flips` and run the script again.
 
-- the selected pixel in each camera;
-- the triangulated world point in metres;
-- reprojection error in pixels;
-- rail-relative height in metres and centimetres;
-- measurement validity and inspection status.
+The script prints lens and pose reprojection errors. Check the previews and validate the result against surveyed reference points before continuing. A low reprojection error alone does not prove the track coordinates are correct.
 
-If only one pixel is supplied, the result is
-`INSUFFICIENT_GEOMETRY`. A single pixel does not determine a 3D height
-without a known plane or component geometry. If either reprojection error is
-greater than `max_reprojection_error_px`, the result is flagged
-`REVIEW_REPROJECTION_ERROR`.
+### 5. Verify and run one measurement
 
-## Calibration
+After reviewing the calibration against known points, set `calibration_verified` to `true` in `config.json`. It is `false` by default so unreviewed files cannot produce a defect decision.
 
-Calibrate each camera separately with a checkerboard or another known target.
-Use `calibrate_camera` in `camera_calibration.py` with:
-
-1. image points detected in each calibration image;
-2. checkerboard object points in metres;
-3. the image size;
-4. the camera ID.
-
-The object points must use one shared railway world frame:
-
-- `X` - along the track;
-- `Y` - vertical, positive upward;
-- `Z` - lateral across the track.
-
-Use `save_calibration` to write each `CameraCalibration` to an `.npz` file.
-The two camera files must use the same world frame.
-
-To create structurally valid placeholders for development or loader testing:
+Use simultaneous SBL/SLL images and enter the pixel location of the **same physical point** in both. The pixel coordinates will usually differ:
 
 ```bash
-conda run --prefix .conda-env python calibration/create_placeholder_calibration.py
+python main.py --sbl-image data/sbl.png --sll-image data/sll.png --sbl-pixel 520 310 --sll-pixel 480 300
 ```
 
-The generated files use an identity camera matrix and zero pose only so the
-file format can be tested. They are not physical calibrations and must not be
-used for railway measurements or inspection decisions.
+Replace the example paths and coordinates with your images and selected point. The images currently in `data/` are synthetic, and their green markers are on different wagon parts; they cannot be used as a valid matching pair.
 
-A checkerboard square size establishes scale, but does not establish the rail
-datum. The target must have a surveyed relationship to the rail or track.
-Do not set `rail_reference_y_m` until that relationship is known.
+## If the CLI says the calibration files are placeholders
 
-## Configuration
-
-The default [config.json](config.json) is intentionally fail-closed:
-
-```json
-{
-  "rail_reference_y_m": null,
-  "threshold_m": 1.5,
-  "rule": null,
-  "max_reprojection_error_px": 3.0,
-  "cameras": {
-    "UNDERCARRIAGE_CAM": "calibration/undercarriage.npz",
-    "SIDE_CAM": "calibration/side.npz"
-  }
-}
-```
-
-Supported rules are:
-
-- `maximum_height`: pass when `height_m <= threshold_m`;
-- `minimum_clearance`: pass when `height_m >= threshold_m`;
-- `absolute_separation`: pass when `abs(height_m) <= threshold_m`.
-
-The height calculation is:
-
-```text
-height_m = point_world_y - rail_reference_y_m
-```
-
-If the rail reference or rule is missing, the program reports
-`RULE_UNCONFIGURED` and does not report PASS or FAIL.
-
-## Limitations
-
-The synthetic tests validate transformations, stereo reconstruction, height
-calculation, threshold behavior, and missing-reference handling. They do not
-prove field accuracy. Real accuracy depends on camera baseline, calibration
-quality, target-to-rail surveying, image synchronization, point selection,
-occlusion, and the official railway inspection rule.
+The files at the configured paths were created by `calibration/create_placeholder_calibration.py`. That script only makes fake files for software-format checks; it does not calibrate cameras. Run `create_calibrations.py` as described above to replace them. Do not use files under `calibration/placeholders/` for measurement.

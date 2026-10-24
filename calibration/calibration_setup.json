@@ -1,0 +1,12 @@
+{
+  "inner_corners_cols": 0,
+  "inner_corners_rows": 0,
+  "square_size_m": null,
+  "world_first_inner_corner_m": null,
+  "world_column_step_m": null,
+  "world_row_step_m": null,
+  "pose_corner_flips": {
+    "SBL": {"rows": false, "columns": false},
+    "SLL": {"rows": false, "columns": false}
+  }
+}

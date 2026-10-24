@@ -1,10 +1,15 @@
 {
-  "rail_reference_y_m": null,
+  "rail_reference_y_m": 0.0,
   "threshold_m": 1.5,
-  "rule": null,
+  "rule": "defect_at_or_below_threshold",
+  "calibration_verified": false,
   "max_reprojection_error_px": 3.0,
   "cameras": {
-    "UNDERCARRIAGE_CAM": "calibration/undercarriage.npz",
-    "SIDE_CAM": "calibration/side.npz"
+    "SBL": "calibration/sbl.npz",
+    "SLL": "calibration/sll.npz"
+  },
+  "camera_mount_approx_m": {
+    "SBL": {"height_y_m": 0.322, "offset_from_wagon_side_m": 1.335},
+    "SLL": {"height_y_m": 2.100, "offset_from_wagon_side_m": 1.225}
   }
 }

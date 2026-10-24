@@ -32,9 +32,11 @@ def test_stereo_reconstructs_known_point():
 
 
 def test_height_and_rules():
-    result = evaluate_clearance(0.85, 0.0, threshold_m=1.5, rule="maximum_height")
+    result = evaluate_clearance(0.85, 0.0, threshold_m=1.5, rule="defect_at_or_below_threshold")
     assert result.height_m == pytest.approx(0.85)
-    assert result.status == "PASS"
+    assert result.status == "DEFECT"
+    assert evaluate_clearance(1.5, 0.0, threshold_m=1.5, rule="defect_at_or_below_threshold").status == "DEFECT"
+    assert evaluate_clearance(1.5001, 0.0, threshold_m=1.5, rule="defect_at_or_below_threshold").status == "CLEAR"
     assert evaluate_clearance(0.85, 0.0, threshold_m=1.5, rule=None).status == "RULE_UNCONFIGURED"
 
 
