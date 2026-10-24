@@ -85,6 +85,16 @@ The object points must use one shared railway world frame:
 Use `save_calibration` to write each `CameraCalibration` to an `.npz` file.
 The two camera files must use the same world frame.
 
+To create structurally valid placeholders for development or loader testing:
+
+```bash
+conda run --prefix .conda-env python calibration/create_placeholder_calibration.py
+```
+
+The generated files use an identity camera matrix and zero pose only so the
+file format can be tested. They are not physical calibrations and must not be
+used for railway measurements or inspection decisions.
+
 A checkerboard square size establishes scale, but does not establish the rail
 datum. The target must have a surveyed relationship to the rail or track.
 Do not set `rail_reference_y_m` until that relationship is known.
