@@ -18,6 +18,7 @@ class CameraCalibration:
     rotation_world_to_camera: np.ndarray
     translation_world_to_camera: np.ndarray
     is_placeholder: bool = False
+    is_demo: bool = False
 
     def __post_init__(self) -> None:
         if self.camera_matrix.shape != (3, 3):
@@ -80,6 +81,7 @@ def load_calibration(path: str | Path) -> CameraCalibration:
         data["rotation_world_to_camera"],
         data["translation_world_to_camera"],
         bool(data["is_placeholder"].item()) if "is_placeholder" in data.files else False,
+        bool(data["is_demo"].item()) if "is_demo" in data.files else False,
     )
 
 
@@ -92,4 +94,5 @@ def save_calibration(calibration: CameraCalibration, path: str | Path) -> None:
         rotation_world_to_camera=calibration.rotation_world_to_camera,
         translation_world_to_camera=calibration.translation_world_to_camera,
         is_placeholder=calibration.is_placeholder,
+        is_demo=calibration.is_demo,
     )

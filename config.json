@@ -1,4 +1,24 @@
 {
+  "_comments": {
+    "mode": "synthetic_demo prints an example only; use real after creating and validating real camera calibrations.",
+    "rail_reference_y_m": "Height of the track datum in the shared world frame. This setup defines the datum as Y=0.",
+    "threshold_m": "Railway threshold: points at or below this height are defects.",
+    "rule": "How the threshold is applied to the measured point height.",
+    "calibration_verified": "Set true only after validating real calibrations against surveyed points. Demo mode always remains non-valid.",
+    "max_reprojection_error_px": "Maximum image reprojection error allowed for a real measurement; 3 px is a provisional setting.",
+    "cameras": "Paths to SBL and SLL calibration NPZ files used by main.py.",
+    "camera_mount_approx_m": "Estimated camera centers from the supplied drawing. Z assumes 1.625 m from track center to the near wagon side plus the camera-to-side dimension; X=0 is arbitrary.",
+    "camera_mount_approx_m.x_m": "Approximate along-track camera location; zero is an arbitrary shared origin.",
+    "camera_mount_approx_m.y_m": "Camera height from the track datum, taken approximately from the drawing.",
+    "camera_mount_approx_m.z_m": "Approximate lateral location using the stated 1.625 m drawing dimension; sign is positive toward the cameras.",
+    "camera_mount_approx_m.offset_from_wagon_side_m": "Camera-to-wagon-side distance shown in the camera placement drawing.",
+    "demo_assumptions": "Made-up pinhole camera settings for software demonstration only; these are not measured camera properties.",
+    "demo_assumptions.focal_length_px": "Assumed focal length in pixels; actual lens calibration is unknown.",
+    "demo_assumptions.aim_height_y_m": "Assumed point both demo cameras look toward; chosen for a runnable example.",
+    "demo_assumptions.distortion_coefficients": "Assumes no lens distortion; actual distortion is unknown.",
+    "demo_assumptions.image_paths": "Images whose dimensions are used to build the demo camera matrices."
+  },
+  "mode": "synthetic_demo",
   "rail_reference_y_m": 0.0,
   "threshold_m": 1.5,
   "rule": "defect_at_or_below_threshold",
@@ -9,7 +29,13 @@
     "SLL": "calibration/sll.npz"
   },
   "camera_mount_approx_m": {
-    "SBL": {"height_y_m": 0.322, "offset_from_wagon_side_m": 1.335},
-    "SLL": {"height_y_m": 2.100, "offset_from_wagon_side_m": 1.225}
+    "SBL": {"x_m": 0.0, "y_m": 0.322, "z_m": 2.960, "offset_from_wagon_side_m": 1.335},
+    "SLL": {"x_m": 0.0, "y_m": 2.100, "z_m": 2.850, "offset_from_wagon_side_m": 1.225}
+  },
+  "demo_assumptions": {
+    "focal_length_px": 1200.0,
+    "aim_height_y_m": 1.0,
+    "distortion_coefficients": [0.0, 0.0, 0.0, 0.0, 0.0],
+    "image_paths": {"SBL": "data/sbl.png", "SLL": "data/sll.png"}
   }
 }

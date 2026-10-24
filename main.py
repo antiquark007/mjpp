@@ -24,7 +24,10 @@ def main() -> int:
     args = parser.parse_args()
 
     config = json.loads(args.config.read_text(encoding="utf-8"))
-    if not config.get("calibration_verified", False):
+    mode = config.get("mode", "real")
+    if mode not in {"real", "synthetic_demo"}:
+        raise SystemExit("config mode must be 'real' or 'synthetic_demo'")
+    if mode == "real" and not config.get("calibration_verified", False):
         raise SystemExit(
             "calibration is not verified for the track frame; refusing to produce a measurement"
         )
@@ -41,6 +44,10 @@ def main() -> int:
         raise SystemExit(
             "SBL/SLL calibration files are placeholders; create real track-frame calibrations before measuring"
         )
+    if mode == "synthetic_demo" and not (sbl.is_demo and sll.is_demo):
+        raise SystemExit("demo mode needs demo calibrations; run python calibration/create_demo_calibrations.py")
+    if mode == "real" and (sbl.is_demo or sll.is_demo):
+        raise SystemExit("demo calibration files cannot be used in real mode")
     if (args.sbl_pixel is None) != (args.sll_pixel is None):
         print("World point: unavailable")
         print("Measurement valid: False")
@@ -63,14 +70,18 @@ def main() -> int:
     print(f"Rail reference height: {measurement.rail_reference_y_m:.4f} m")
     print(f"Measured height: {measurement.height_m:.4f} m ({measurement.height_m * 100:.1f} cm)")
     print(f"Threshold: {measurement.threshold_m * 100:.1f} cm" if measurement.threshold_m is not None else "Threshold: not configured")
-    print("Measurement method: calibrated stereo triangulation")
+    print("Measurement method: assumed demo stereo geometry" if mode == "synthetic_demo" else "Measurement method: calibrated stereo triangulation")
     sbl_error = reprojection_error(point, sbl_pixel, sbl)
     sll_error = reprojection_error(point, sll_pixel, sll)
     print(f"Reprojection error: SBL={sbl_error:.3f}px, SLL={sll_error:.3f}px")
     max_error = float(config.get("max_reprojection_error_px", 3.0))
-    valid = measurement.valid and max(sbl_error, sll_error) <= max_error
+    valid = mode == "real" and measurement.valid and max(sbl_error, sll_error) <= max_error
     print(f"Measurement valid: {valid}")
-    print(f"Status: {'REVIEW_REPROJECTION_ERROR' if measurement.valid and not valid else measurement.status}")
+    if mode == "synthetic_demo":
+        print(f"Candidate threshold result: {measurement.status}")
+        print("Status: DEMO_ONLY (assumed geometry and generated images; not a valid defect decision)")
+    else:
+        print(f"Status: {'REVIEW_REPROJECTION_ERROR' if measurement.valid and not valid else measurement.status}")
     return 0
 
 

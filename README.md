@@ -1,65 +1,51 @@
 # v2: SBL/SLL height check
 
-The system estimates the 3D position of one point seen by both cameras. It reports `DEFECT` when the point is at or below 1.50 m above the configured track datum (`Y = 0 m`).
+This program estimates the 3D position of one point visible in the SBL and SLL images. The configured rule is `DEFECT` at or below 1.50 m above the track datum (`Y = 0 m`).
 
-## Do these steps in order
+## Run now with generated images (demo only)
 
-### 1. Prepare calibration photos
+The supplied images do not contain real camera calibration and are not guaranteed to show the same physical point. The demo mode runs the software path with approximate camera geometry from the setup drawing. Its output is always labeled `DEMO_ONLY`; it is not a valid height measurement or railway defect decision.
 
-Keep the cameras at their final fixed positions and use the same image resolution that will be used during inspection.
+From the `v2` folder, run these commands in order:
 
-For **each camera**, take at least 8 checkerboard photos with the board at different distances and angles. Save them here:
+1. `python calibration/create_demo_calibrations.py` — writes assumed SBL/SLL calibration files using the values in `config.json` and the image sizes in `data/`.
+2. `python main.py --sbl-image data/sbl.png --sll-image data/sll.png --sbl-pixel 838.9 522.2 --sll-pixel 757.6 901.0` — runs the pipeline using the green marker centers in the current images. The markers are on different wagon parts, so only use this to see the program execute; its 3D point and threshold result are not meaningful.
 
-- `calibration/images/SBL/intrinsics/`
-- `calibration/images/SLL/intrinsics/`
+Demo assumptions currently set in `config.json`:
 
-Use a board that is fully visible and in focus. The checkerboard size means the number of inner corner points, not the number of squares.
+- SBL camera center: approximately `(X=0, Y=0.322, Z=2.960)` m.
+- SLL camera center: approximately `(X=0, Y=2.100, Z=2.850)` m.
+- `Z` assumes the drawing's 1.625 m track-center-to-near-side distance plus each camera's wagon-side offset. The drawing does not fully specify camera orientation or lens properties.
+- Focal length 1200 px, zero lens distortion, and aim point at Y=1.0 m are chosen placeholders for a runnable demonstration.
 
-### 2. Capture the surveyed board pose
+## Switch to real camera measurements later
 
-Place the checkerboard at a fixed, surveyed position relative to the track. Both cameras must see it. Capture one image from each camera without moving the board:
+1. Set `mode` to `real` in `config.json`.
+2. Put at least 8 checkerboard views for each camera in `calibration/images/SBL/intrinsics/` and `calibration/images/SLL/intrinsics/`. Keep image resolution fixed.
+3. Put a checkerboard at a surveyed, fixed position relative to the track datum. Capture it without moving it as `calibration/images/SBL/track_pose.png` and `calibration/images/SLL/track_pose.png`.
+4. Fill `calibration/calibration_setup.json` with the checkerboard inner-corner counts, measured square size, surveyed first-corner coordinates, and surveyed row/column step vectors. All distances are in metres. The first corner must be identifiable in both images; the per-camera flip settings tell the script how to order detected corners.
+5. Run `python calibration/create_calibrations.py`. Inspect `calibration/debug/` to confirm corner 0 is the surveyed first corner. Validate the results against surveyed points.
+6. Only after validation, set `calibration_verified` to `true` and run `main.py` with simultaneous images and pixels for the same physical point.
 
-- `calibration/images/SBL/track_pose.png`
-- `calibration/images/SLL/track_pose.png`
+Do not use the demo calibration files in real mode. The program rejects them.
 
-Mark the board's chosen first inner corner. Record that corner's track coordinates and the 3D step between neighboring corners in both board directions. Use metres and the shared axes: X along track, Y upward from the track datum, Z lateral from the chosen track plane. Do not use camera-to-wagon offsets as board coordinates.
+## Config notes
 
-### 3. Enter the board measurements
+`config.json` contains a `_comments` object because standard JSON does not allow `//` comments. It describes the purpose of every setting. Camera locations from the drawing are approximate; camera intrinsics and full poses require calibration.
 
-Edit `calibration/calibration_setup.json`:
+## File guide
 
-- `inner_corners_cols`, `inner_corners_rows`: checkerboard inner corner counts.
-- `square_size_m`: measured side length of one square.
-- `world_first_inner_corner_m`: surveyed `[X, Y, Z]` of the marked first inner corner.
-- `world_column_step_m`, `world_row_step_m`: surveyed `[dX, dY, dZ]` from one inner corner to the next in each direction.
-- `pose_corner_flips`: leave `false` unless the debug image shows that the detected corner order must be flipped to make corner 0 the marked corner and align the rows/columns with the entered step vectors.
-
-These surveyed values are required; the script will stop if they are missing. The approximate SBL/SLL mounting dimensions in `config.json` do not provide them.
-
-### 4. Create the calibration files
-
-From the `v2` folder, run:
-
-```bash
-python calibration/create_calibrations.py
-```
-
-This detects checkerboard corners, calculates each lens calibration and track-frame camera pose, then writes `calibration/sbl.npz` and `calibration/sll.npz`. It also writes corner-order previews to `calibration/debug/`. Check that the red point labeled `0` is on the marked first corner in both previews. If it is not, adjust that camera's `pose_corner_flips` and run the script again.
-
-The script prints lens and pose reprojection errors. Check the previews and validate the result against surveyed reference points before continuing. A low reprojection error alone does not prove the track coordinates are correct.
-
-### 5. Verify and run one measurement
-
-After reviewing the calibration against known points, set `calibration_verified` to `true` in `config.json`. It is `false` by default so unreviewed files cannot produce a defect decision.
-
-Use simultaneous SBL/SLL images and enter the pixel location of the **same physical point** in both. The pixel coordinates will usually differ:
-
-```bash
-python main.py --sbl-image data/sbl.png --sll-image data/sll.png --sbl-pixel 520 310 --sll-pixel 480 300
-```
-
-Replace the example paths and coordinates with your images and selected point. The images currently in `data/` are synthetic, and their green markers are on different wagon parts; they cannot be used as a valid matching pair.
-
-## If the CLI says the calibration files are placeholders
-
-The files at the configured paths were created by `calibration/create_placeholder_calibration.py`. That script only makes fake files for software-format checks; it does not calibrate cameras. Run `create_calibrations.py` as described above to replace them. Do not use files under `calibration/placeholders/` for measurement.
+- `main.py` — command-line entry point: loads two images and calibrations, triangulates a selected point, and reports height/status.
+- `config.json` — threshold, track datum, camera file paths, run mode, and explicitly labeled demo assumptions.
+- `camera_calibration.py` — stores, loads, and saves camera matrices and camera-to-world-frame pose data.
+- `coordinate_transform.py` — converts between camera/world coordinates, undistorts pixels, triangulates points, and calculates reprojection error.
+- `clearance_measurement.py` — converts world Y to track-relative height and applies the configured threshold rule.
+- `calibration/create_demo_calibrations.py` — creates approximate calibrations for software demonstration only.
+- `calibration/create_calibrations.py` — creates real calibrations from checkerboard images and surveyed track-frame coordinates.
+- `calibration/calibration_setup.json` — input measurements for the real calibration script; not needed in demo mode.
+- `calibration/create_placeholder_calibration.py` — creates fake files for format checks only; never use its output for measurements.
+- `calibration/sbl.npz`, `calibration/sll.npz` — generated calibration data read by `main.py`; their meaning depends on `mode` and the file's demo/placeholder flags.
+- `data/sbl.png`, `data/sll.png` — generated demo images; not calibration photos or a verified matching stereo pair.
+- `tests/test_geometry.py` — synthetic checks for coordinate transforms and threshold behavior.
+- `requirements.txt` — Python packages required by the scripts (NumPy and OpenCV; pytest is for the existing tests).
+- `README.md` — run instructions and project notes.
