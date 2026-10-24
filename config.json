@@ -1,0 +1,10 @@
+{
+  "rail_reference_y_m": null,
+  "threshold_m": 1.5,
+  "rule": null,
+  "max_reprojection_error_px": 3.0,
+  "cameras": {
+    "UNDERCARRIAGE_CAM": "calibration/undercarriage.npz",
+    "SIDE_CAM": "calibration/side.npz"
+  }
+}

@@ -1,0 +1,27 @@
+# Conda environments
+.conda-env/
+conda-env/
+
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Local calibration artifacts and inspection data
+calibration/*.npz
+data/
+output/
+*.jpg
+*.jpeg
+*.png
+*.mp4
+
+# Local editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+*.swp
